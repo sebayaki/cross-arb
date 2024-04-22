@@ -231,4 +231,14 @@ async function main() {
   }
 }
 
-main();
+async function runForever() {
+  while (true) {
+    await main();
+    await new Promise((resolve) => setTimeout(resolve, 10000)); // 10s
+  }
+}
+
+runForever().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
