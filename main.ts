@@ -234,7 +234,7 @@ async function main() {
 async function runForever() {
   while (true) {
     await main();
-    await new Promise((resolve) => setTimeout(resolve, 10000)); // 10s
+    await new Promise((resolve) => setTimeout(resolve, 3000)); // 3s
   }
 }
 
