@@ -1,5 +1,7 @@
 import { Token } from "@uniswap/sdk-core";
 import { ethers, JsonRpcProvider } from "ethers";
+import dotenv from "dotenv";
+dotenv.config();
 
 export enum CHAINS {
   MAINNET = 1,
@@ -11,14 +13,30 @@ export const PROVIDERS = {
   [CHAINS.BASE]: new JsonRpcProvider("https://1rpc.io/base"),
 };
 
+export const WALLETS = {
+  [CHAINS.MAINNET]: new ethers.Wallet(
+    process.env.BOT_P_KEY!,
+    PROVIDERS[CHAINS.MAINNET]
+  ),
+  [CHAINS.BASE]: new ethers.Wallet(
+    process.env.BOT_P_KEY!,
+    PROVIDERS[CHAINS.BASE]
+  ),
+};
+
 export const POOL_FACTORY = {
   [CHAINS.MAINNET]: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
   [CHAINS.BASE]: "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
 };
 
-export const QUOTER = {
-  [CHAINS.MAINNET]: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+export const QUOTER_V2 = {
+  [CHAINS.MAINNET]: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
   [CHAINS.BASE]: "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+};
+
+export const SWAP_ROUTER_V2 = {
+  [CHAINS.MAINNET]: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+  [CHAINS.BASE]: "0x2626664c2603336E57B271c5C0b26F421741e481",
 };
 
 export const TOKENS = {
