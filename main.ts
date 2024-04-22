@@ -170,7 +170,7 @@ async function swapTokens(
       fee: FEE_TIER,
       recipient: WALLETS[chainId].address,
       deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from the current time
-      amountIn: toWei(amountHunt), // Exact amount of HUNT to sell
+      amountIn: amountHunt, // Exact amount of HUNT to sell
       amountOutMinimum: ethToReceive, // No slippage
       sqrtPriceLimitX96: 0, // No price limit
     });
@@ -219,14 +219,14 @@ async function main() {
     ).toString()
   );
 
-  console.log(`-> ${direction}: ${toReadable(adjustAmount)} HUNT`);
-
   if (adjustAmount > HUNT_AMOUNT_THRESHOLD) {
+    console.log(`-> ${direction}: ${toReadable(adjustAmount)} HUNT`);
+
     await swapTokens(CHAINS.BASE, BigInt(String(adjustAmount)), isBuy);
     await printPrices();
   } else {
     console.log(
-      `  -> adjustAmount below threshold: ${toReadable(adjustAmount)} HUNT`
+      `-> adjustAmount below threshold: ${toReadable(adjustAmount)} HUNT`
     );
   }
 }
