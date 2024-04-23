@@ -1,5 +1,5 @@
 import { Token } from "@uniswap/sdk-core";
-import { ethers, JsonRpcProvider } from "ethers";
+import { ethers, JsonRpcProvider, FallbackProvider } from "ethers";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -8,9 +8,46 @@ export enum CHAINS {
   BASE = 8453,
 }
 
+const RPC_SERVERS = {
+  [CHAINS.MAINNET]: [
+    "https://eth.llamarpc.com",
+    "https://ethereum-rpc.publicnode.com",
+    "https://1rpc.io/eth",
+    "https://rpc.mevblocker.io",
+    "https://eth-pokt.nodies.app",
+    "https://eth.drpc.org",
+  ],
+  [CHAINS.BASE]: [
+    "https://base.llamarpc.com",
+    "https://base.drpc.org",
+    "https://base-rpc.publicnode.com",
+    "https://1rpc.io/base",
+    "https://base.meowrpc.com",
+    "https://base-pokt.nodies.app",
+  ],
+};
+
+function getProviderConfig(rpc: string, priority: number) {
+  return {
+    provider: new JsonRpcProvider(rpc),
+    priority: priority,
+    weight: 1,
+    stallTimeout: 1000, // 1s
+  };
+}
+const quorum = 1;
+
 export const PROVIDERS = {
-  [CHAINS.MAINNET]: new JsonRpcProvider("https://eth.llamarpc.com"),
-  [CHAINS.BASE]: new JsonRpcProvider("https://base.llamarpc.com"),
+  [CHAINS.MAINNET]: new FallbackProvider(
+    RPC_SERVERS[CHAINS.MAINNET].map((rpc, i) => getProviderConfig(rpc, i)),
+    undefined,
+    { quorum }
+  ),
+  [CHAINS.BASE]: new FallbackProvider(
+    RPC_SERVERS[CHAINS.BASE].map((rpc, i) => getProviderConfig(rpc, i)),
+    undefined,
+    { quorum }
+  ),
 };
 
 export const WALLETS = {
