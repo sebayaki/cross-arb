@@ -9,8 +9,8 @@ export enum CHAINS {
 }
 
 export const PROVIDERS = {
-  [CHAINS.MAINNET]: new JsonRpcProvider("https://1rpc.io/eth"),
-  [CHAINS.BASE]: new JsonRpcProvider("https://1rpc.io/base"),
+  [CHAINS.MAINNET]: new JsonRpcProvider("https://eth.llamarpc.com"),
+  [CHAINS.BASE]: new JsonRpcProvider("https://base.llamarpc.com"),
 };
 
 export const WALLETS = {
