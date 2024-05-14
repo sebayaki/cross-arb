@@ -15,14 +15,14 @@ const RPC_SERVERS = {
     "https://1rpc.io/eth",
     "https://rpc.mevblocker.io",
     "https://eth-pokt.nodies.app",
-    "https://eth.llamarpc.com",
+    // "https://eth.llamarpc.com",
   ],
   [CHAINS.BASE]: [
     "https://base.drpc.org",
     "https://base-rpc.publicnode.com",
     "https://1rpc.io/base",
     "https://base.meowrpc.com",
-    "https://base.llamarpc.com",
+    // "https://base.llamarpc.com",
     "https://base-pokt.nodies.app",
   ],
 };
