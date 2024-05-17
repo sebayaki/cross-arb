@@ -187,33 +187,56 @@ async function swapTokens(
 }
 
 async function printPrices() {
-  const main = await quote(CHAINS.MAINNET);
+  const mainnet = await quote(CHAINS.MAINNET);
   const base = await quote(CHAINS.BASE);
 
   console.log(
-    `HUNT Price - Mainnet: ${toReadable(main.price)} ETH | Base: ${toReadable(
-      base.price
-    )} ETH (${base.price - main.price > 0 ? "+" : ""}${(
-      (100 * Number(base.price - main.price)) /
+    `HUNT Price - mainnetnet: ${toReadable(
+      mainnet.price
+    )} ETH | Base: ${toReadable(base.price)} ETH (${
+      base.price - mainnet.price > 0 ? "+" : ""
+    }${(
+      (100 * Number(base.price - mainnet.price)) /
       Number(base.price)
     ).toFixed(3)}%)`
   );
 
-  return { main, base };
+  return { mainnet, base };
 }
 
 async function main() {
-  const { main, base } = await printPrices();
+  let mainnet, base;
+  try {
+    const p = await printPrices();
+    mainnet = p.mainnet;
+    base = p.base;
+  } catch (error) {
+    console.error(
+      `Error during price check:`,
+      error.info?.error?.code === 19 ? "RPC error" : error
+    );
+    return;
+  }
 
-  const isBuy = main.price > base.price;
+  const isBuy = mainnet.price > base.price;
   const direction = isBuy ? "Base BUY" : "Base SELL";
 
-  const liquidity = await _getPoolLiquidity(CHAINS.BASE);
+  let liquidity;
+  try {
+    liquidity = await _getPoolLiquidity(CHAINS.BASE);
+  } catch (error) {
+    console.error(
+      `Error during liquidity check:`,
+      error.info?.error?.code === 19 ? "RPC error" : error
+    );
+    return;
+  }
+
   // console.log(`Base pool liquidity: ${toReadable(liquidity)} HUNT-WETH LP tokens`);
   const adjustAmount = BigInt(
     SqrtPriceMath.getAmount0Delta(
       JSBI.BigInt(base.sqrtPriceX96After.toString()),
-      JSBI.BigInt(main.sqrtPriceX96After.toString()),
+      JSBI.BigInt(mainnet.sqrtPriceX96After.toString()),
       JSBI.BigInt(liquidity.toString()),
       true // round up to match prices accurately
     ).toString()
