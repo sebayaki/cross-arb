@@ -10,16 +10,16 @@ export enum CHAINS {
 
 const RPC_SERVERS = {
   [CHAINS.MAINNET]: [
-    "https://eth.drpc.org",
     "https://ethereum-rpc.publicnode.com",
+    "https://eth.drpc.org",
     "https://1rpc.io/eth",
     "https://rpc.mevblocker.io",
     "https://eth-pokt.nodies.app",
     // "https://eth.llamarpc.com",
   ],
   [CHAINS.BASE]: [
-    "https://base.drpc.org",
     "https://base-rpc.publicnode.com",
+    "https://base.drpc.org",
     "https://1rpc.io/base",
     "https://base.meowrpc.com",
     // "https://base.llamarpc.com",
