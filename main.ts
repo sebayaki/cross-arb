@@ -18,6 +18,7 @@ import JSBI from "jsbi";
 
 const FEE_TIER = 3000; // Scan for 0.3% fee tier
 const HUNT_AMOUNT_THRESHOLD = toWei(5n); // 5 HUNT ~ $2
+const HUNT_MAX_THRESHOLD = toWei(10000n); // 10,000 HUNT
 
 async function quote(
   chainId: number
@@ -233,7 +234,7 @@ async function main() {
   }
 
   // console.log(`Base pool liquidity: ${toReadable(liquidity)} HUNT-WETH LP tokens`);
-  const adjustAmount = BigInt(
+  let adjustAmount = BigInt(
     SqrtPriceMath.getAmount0Delta(
       JSBI.BigInt(base.sqrtPriceX96After.toString()),
       JSBI.BigInt(mainnet.sqrtPriceX96After.toString()),
@@ -244,6 +245,15 @@ async function main() {
 
   if (adjustAmount > HUNT_AMOUNT_THRESHOLD) {
     console.log(`-> ${direction}: ${toReadable(adjustAmount)} HUNT`);
+
+    if (adjustAmount > HUNT_MAX_THRESHOLD) {
+      console.log(
+        `-> ${direction}: Adjusting ${toReadable(adjustAmount)} -> ${toReadable(
+          HUNT_MAX_THRESHOLD
+        )} HUNT (max)`
+      );
+      adjustAmount = HUNT_MAX_THRESHOLD;
+    }
 
     await swapTokens(CHAINS.BASE, BigInt(String(adjustAmount)), isBuy);
     await printPrices();
