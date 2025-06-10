@@ -268,10 +268,10 @@ async function runForever() {
   while (true) {
     try {
       await main();
-      await new Promise((resolve) => setTimeout(resolve, 30000)); // 30s
+      await new Promise((resolve) => setTimeout(resolve, 60000)); // 1m
     } catch (error) {
       console.error(`Error: ${error.message}`);
-      await new Promise((resolve) => setTimeout(resolve, 30000)); // 30s
+      await new Promise((resolve) => setTimeout(resolve, 60000)); // 1m
     }
   }
 }
