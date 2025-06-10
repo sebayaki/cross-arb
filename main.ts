@@ -264,14 +264,28 @@ async function main() {
   }
 }
 
+function getRandomWaitTime(): number {
+  const minMs = 30 * 1000; // 30 seconds
+  const maxMs = 5 * 60 * 1000; // 5 minutes
+  return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+}
+
 async function runForever() {
   while (true) {
     try {
       await main();
-      await new Promise((resolve) => setTimeout(resolve, 60000)); // 1m
+      const delay = getRandomWaitTime();
+      console.log(`Waiting for ${delay / 1000} seconds...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
     } catch (error) {
       console.error(`Error: ${error.message}`);
-      await new Promise((resolve) => setTimeout(resolve, 60000)); // 1m
+      const delay = getRandomWaitTime();
+      console.log(
+        `An error occurred. Waiting for ${
+          delay / 1000
+        } seconds before retrying...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
