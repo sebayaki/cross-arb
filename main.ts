@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { parseAbi } from "viem";
 import { computePoolAddress } from "@uniswap/v3-sdk";
 import QuoterV2 from "@uniswap/v3-periphery/artifacts/contracts/lens/QuoterV2.sol/QuoterV2.json";
 import SwapRouterV2 from "@uniswap/swap-router-contracts/artifacts/contracts/SwapRouter02.sol/SwapRouter02.json";
@@ -12,7 +12,7 @@ import {
   SWAP_ROUTER_V2,
   TOKENS,
 } from "./configs";
-import { toWei, toReadable, MAX_INT_256 } from "./utils";
+import { toWei, toReadable } from "./utils";
 import { SqrtPriceMath } from "@uniswap/v3-sdk";
 import JSBI from "jsbi";
 
@@ -23,24 +23,24 @@ const HUNT_MAX_THRESHOLD = toWei(10000n); // 10,000 HUNT
 async function quote(
   chainId: number
 ): Promise<{ price: bigint; sqrtPriceX96After: bigint }> {
-  const quoterContract = new ethers.Contract(
-    QUOTER_V2[chainId],
-    QuoterV2.abi,
-    WALLETS[chainId]
-  );
-
-  const quotedAmountOut =
-    await quoterContract.quoteExactInputSingle.staticCallResult([
-      TOKENS[chainId].HUNT.address,
-      TOKENS[chainId].WETH.address,
-      toWei(1n),
-      FEE_TIER,
-      0,
-    ]);
+  const [price, sqrtPriceX96After] = await PROVIDERS[chainId].readContract({
+    address: QUOTER_V2[chainId] as `0x${string}`,
+    abi: QuoterV2.abi,
+    functionName: "quoteExactInputSingle",
+    args: [
+      {
+        tokenIn: TOKENS[chainId].HUNT.address,
+        tokenOut: TOKENS[chainId].WETH.address,
+        amountIn: toWei(1n),
+        fee: FEE_TIER,
+        sqrtPriceLimitX96: 0n,
+      },
+    ],
+  });
 
   return {
-    price: quotedAmountOut[0],
-    sqrtPriceX96After: quotedAmountOut[1],
+    price,
+    sqrtPriceX96After,
   };
 }
 
@@ -52,27 +52,30 @@ async function _getPoolLiquidity(chainId: number): Promise<bigint> {
     fee: FEE_TIER,
   });
 
-  // console.log(currentPoolAddress);
-  const poolContract = new ethers.Contract(
-    currentPoolAddress,
-    IUniswapV3PoolABI.abi,
-    PROVIDERS[chainId]
-  );
-
-  return await poolContract.liquidity();
+  return await PROVIDERS[chainId].readContract({
+    address: currentPoolAddress as `0x${string}`,
+    abi: IUniswapV3PoolABI.abi,
+    functionName: "liquidity",
+  });
 }
 
 async function getBalances(chainId: number) {
-  const huntContract = new ethers.Contract(
-    TOKENS[chainId].HUNT.address,
-    ["function balanceOf(address) view returns (uint256)"],
-    PROVIDERS[chainId]
-  );
+  const huntAbi = parseAbi([
+    "function balanceOf(address) view returns (uint256)",
+  ]);
+  const walletAddress = WALLETS[chainId].account.address;
 
-  return {
-    eth: await PROVIDERS[chainId].getBalance(WALLETS[chainId].address),
-    hunt: await huntContract.balanceOf(WALLETS[chainId].address),
-  };
+  const [eth, hunt] = await Promise.all([
+    PROVIDERS[chainId].getBalance({ address: walletAddress }),
+    PROVIDERS[chainId].readContract({
+      address: TOKENS[chainId].HUNT.address as `0x${string}`,
+      abi: huntAbi,
+      functionName: "balanceOf",
+      args: [walletAddress],
+    }),
+  ]);
+
+  return { eth, hunt };
 }
 
 async function printDiffs(initial: { eth: bigint; hunt: bigint }) {
@@ -98,17 +101,6 @@ async function swapTokens(
   amountHunt: bigint,
   isBuy: boolean
 ): Promise<void> {
-  const router = new ethers.Contract(
-    SWAP_ROUTER_V2[chainId],
-    SwapRouterV2.abi,
-    WALLETS[chainId]
-  );
-  const quoterContract = new ethers.Contract(
-    QUOTER_V2[chainId],
-    QuoterV2.abi,
-    WALLETS[chainId]
-  );
-
   // Get initial ETH and HUNT balances
   const initialBalances = await getBalances(chainId);
   console.log(
@@ -120,15 +112,20 @@ async function swapTokens(
   let tx;
   if (isBuy) {
     // Buying HUNT with WETH (exact output)
-    const quotedAmountIn =
-      await quoterContract.quoteExactOutputSingle.staticCallResult([
-        TOKENS[chainId].WETH.address,
-        TOKENS[chainId].HUNT.address,
-        amountHunt, // amountOut
-        FEE_TIER,
-        0,
-      ]);
-    const ethRequired = quotedAmountIn[0];
+    const [ethRequired] = await PROVIDERS[chainId].readContract({
+      address: QUOTER_V2[chainId] as `0x${string}`,
+      abi: QuoterV2.abi,
+      functionName: "quoteExactOutputSingle",
+      args: [
+        {
+          tokenIn: TOKENS[chainId].WETH.address,
+          tokenOut: TOKENS[chainId].HUNT.address,
+          amount: amountHunt, // amountOut
+          fee: FEE_TIER,
+          sqrtPriceLimitX96: 0n,
+        },
+      ],
+    });
 
     console.log(
       `  -> Buying ${toReadable(amountHunt)} HUNT will cost ${toReadable(
@@ -136,28 +133,40 @@ async function swapTokens(
       )} WETH`
     );
 
-    tx = await router.exactOutputSingle({
-      tokenIn: TOKENS[chainId].WETH.address,
-      tokenOut: TOKENS[chainId].HUNT.address,
-      fee: FEE_TIER,
-      recipient: WALLETS[chainId].address,
-      deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from the current time
-      amountOut: amountHunt,
-      amountInMaximum: ethRequired, // No slippage
-      sqrtPriceLimitX96: 0, // No price limit
+    tx = await WALLETS[chainId].writeContract({
+      address: SWAP_ROUTER_V2[chainId] as `0x${string}`,
+      abi: SwapRouterV2.abi,
+      functionName: "exactOutputSingle",
+      args: [
+        {
+          tokenIn: TOKENS[chainId].WETH.address,
+          tokenOut: TOKENS[chainId].HUNT.address,
+          fee: FEE_TIER,
+          recipient: WALLETS[chainId].account.address,
+          deadline: BigInt(Math.floor(Date.now() / 1000) + 60 * 20), // 20 minutes from the current time
+          amountOut: amountHunt,
+          amountInMaximum: ethRequired, // No slippage
+          sqrtPriceLimitX96: 0n, // No price limit
+        },
+      ],
     });
-    console.log(`  -> Buying TX: ${tx.hash}`);
+    console.log(`  -> Buying TX: ${tx}`);
   } else {
     // Selling HUNT for WETH (exact input)
-    const quotedAmountOut =
-      await quoterContract.quoteExactInputSingle.staticCallResult([
-        TOKENS[chainId].HUNT.address,
-        TOKENS[chainId].WETH.address,
-        amountHunt, // amountIn
-        FEE_TIER,
-        0,
-      ]);
-    const ethToReceive = quotedAmountOut[0];
+    const [ethToReceive] = await PROVIDERS[chainId].readContract({
+      address: QUOTER_V2[chainId] as `0x${string}`,
+      abi: QuoterV2.abi,
+      functionName: "quoteExactInputSingle",
+      args: [
+        {
+          tokenIn: TOKENS[chainId].HUNT.address,
+          tokenOut: TOKENS[chainId].WETH.address,
+          amountIn: amountHunt, // amountIn
+          fee: FEE_TIER,
+          sqrtPriceLimitX96: 0n,
+        },
+      ],
+    });
 
     console.log(
       `  -> Selling ${toReadable(amountHunt)} HUNT will get ${toReadable(
@@ -165,21 +174,30 @@ async function swapTokens(
       )} WETH`
     );
 
-    tx = await router.exactInputSingle({
-      tokenIn: TOKENS[chainId].HUNT.address,
-      tokenOut: TOKENS[chainId].WETH.address,
-      fee: FEE_TIER,
-      recipient: WALLETS[chainId].address,
-      deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from the current time
-      amountIn: amountHunt, // Exact amount of HUNT to sell
-      amountOutMinimum: ethToReceive, // No slippage
-      sqrtPriceLimitX96: 0, // No price limit
+    tx = await WALLETS[chainId].writeContract({
+      address: SWAP_ROUTER_V2[chainId] as `0x${string}`,
+      abi: SwapRouterV2.abi,
+      functionName: "exactInputSingle",
+      args: [
+        {
+          tokenIn: TOKENS[chainId].HUNT.address,
+          tokenOut: TOKENS[chainId].WETH.address,
+          fee: FEE_TIER,
+          recipient: WALLETS[chainId].account.address,
+          deadline: BigInt(Math.floor(Date.now() / 1000) + 60 * 20), // 20 minutes from the current time
+          amountIn: amountHunt, // Exact amount of HUNT to sell
+          amountOutMinimum: ethToReceive, // No slippage
+          sqrtPriceLimitX96: 0n, // No price limit
+        },
+      ],
     });
-    console.log(`  -> Selling TX: ${tx.hash}`);
+    console.log(`  -> Selling TX: ${tx}`);
   }
 
   try {
-    const receipt = await tx.wait();
+    await PROVIDERS[chainId].waitForTransactionReceipt({
+      hash: tx,
+    });
     console.log(`  -> Swap completed!`);
     printDiffs(initialBalances);
   } catch (error) {
@@ -212,10 +230,7 @@ async function main() {
     mainnet = p.mainnet;
     base = p.base;
   } catch (error) {
-    console.error(
-      `Error during price check:`,
-      error.info?.error?.code === 19 ? "RPC error" : error
-    );
+    console.error(`Error during price check:`, error.message);
     return;
   }
 
@@ -226,10 +241,7 @@ async function main() {
   try {
     liquidity = await _getPoolLiquidity(CHAINS.BASE);
   } catch (error) {
-    console.error(
-      `Error during liquidity check:`,
-      error.info?.error?.code === 19 ? "RPC error" : error
-    );
+    console.error(`Error during liquidity check:`, error.message);
     return;
   }
 

@@ -1,5 +1,13 @@
 import { Token } from "@uniswap/sdk-core";
-import { ethers, JsonRpcProvider, FallbackProvider } from "ethers";
+import {
+  createPublicClient,
+  http,
+  fallback,
+  createWalletClient,
+  PrivateKeyAccount,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { mainnet, base } from "viem/chains";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -46,38 +54,53 @@ const RPC_SERVERS = {
   ],
 };
 
-function getProviderConfig(rpc: string, priority: number) {
-  return {
-    provider: new JsonRpcProvider(rpc),
-    priority: priority,
-    weight: 1,
-    stallTimeout: 1000, // 1s
-  };
-}
 const quorum = 1;
-
 export const PROVIDERS = {
-  [CHAINS.MAINNET]: new FallbackProvider(
-    RPC_SERVERS[CHAINS.MAINNET].map((rpc, i) => getProviderConfig(rpc, i)),
-    undefined,
-    { quorum }
-  ),
-  [CHAINS.BASE]: new FallbackProvider(
-    RPC_SERVERS[CHAINS.BASE].map((rpc, i) => getProviderConfig(rpc, i)),
-    undefined,
-    { quorum }
-  ),
+  [CHAINS.MAINNET]: createPublicClient({
+    chain: mainnet,
+    transport: fallback(
+      RPC_SERVERS[CHAINS.MAINNET].map((rpc) => http(rpc)),
+      {
+        rank: false,
+      }
+    ),
+  }),
+  [CHAINS.BASE]: createPublicClient({
+    chain: base,
+    transport: fallback(
+      RPC_SERVERS[CHAINS.BASE].map((rpc) => http(rpc)),
+      {
+        rank: false,
+      }
+    ),
+  }),
 };
 
+const account: PrivateKeyAccount = privateKeyToAccount(
+  process.env.BOT_P_KEY! as `0x${string}`
+);
+
 export const WALLETS = {
-  [CHAINS.MAINNET]: new ethers.Wallet(
-    process.env.BOT_P_KEY!,
-    PROVIDERS[CHAINS.MAINNET]
-  ),
-  [CHAINS.BASE]: new ethers.Wallet(
-    process.env.BOT_P_KEY!,
-    PROVIDERS[CHAINS.BASE]
-  ),
+  [CHAINS.MAINNET]: createWalletClient({
+    account,
+    chain: mainnet,
+    transport: fallback(
+      RPC_SERVERS[CHAINS.MAINNET].map((rpc) => http(rpc)),
+      {
+        rank: false,
+      }
+    ),
+  }),
+  [CHAINS.BASE]: createWalletClient({
+    account,
+    chain: base,
+    transport: fallback(
+      RPC_SERVERS[CHAINS.BASE].map((rpc) => http(rpc)),
+      {
+        rank: false,
+      }
+    ),
+  }),
 };
 
 export const POOL_FACTORY = {
