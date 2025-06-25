@@ -1,4 +1,4 @@
-import { parseAbi } from "viem";
+import { erc20Abi, parseAbi } from "viem";
 import { computePoolAddress } from "@uniswap/v3-sdk";
 import QuoterV2 from "@uniswap/v3-periphery/artifacts/contracts/lens/QuoterV2.sol/QuoterV2.json";
 import SwapRouterV2 from "@uniswap/swap-router-contracts/artifacts/contracts/SwapRouter02.sol/SwapRouter02.json";
@@ -60,16 +60,18 @@ async function _getPoolLiquidity(chainId: number): Promise<bigint> {
 }
 
 async function getBalances(chainId: number) {
-  const huntAbi = parseAbi([
-    "function balanceOf(address) view returns (uint256)",
-  ]);
   const walletAddress = WALLETS[chainId].account.address;
 
   const [eth, hunt] = await Promise.all([
-    PROVIDERS[chainId].getBalance({ address: walletAddress }),
+    PROVIDERS[chainId].readContract({
+      address: TOKENS[chainId].WETH.address as `0x${string}`,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [walletAddress],
+    }),
     PROVIDERS[chainId].readContract({
       address: TOKENS[chainId].HUNT.address as `0x${string}`,
-      abi: huntAbi,
+      abi: erc20Abi,
       functionName: "balanceOf",
       args: [walletAddress],
     }),
@@ -285,6 +287,13 @@ function getRandomWaitTime(): number {
 async function runForever() {
   while (true) {
     try {
+      const balances = await getBalances(CHAINS.BASE);
+      console.log(
+        `Initial balances: ETH: ${toReadable(
+          balances.eth
+        )} | HUNT: ${toReadable(balances.hunt)}`
+      );
+
       await main();
       const delay = getRandomWaitTime();
       console.log(`Waiting for ${delay / 1000} seconds...`);

@@ -54,7 +54,6 @@ const RPC_SERVERS = {
   ],
 };
 
-const quorum = 1;
 export const PROVIDERS = {
   [CHAINS.MAINNET]: createPublicClient({
     chain: mainnet,
